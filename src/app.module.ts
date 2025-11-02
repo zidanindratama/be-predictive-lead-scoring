@@ -8,6 +8,8 @@ import cloudinaryConfig from './config/cloudinary.config';
 import { PrismaModule } from './prisma/prisma.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { AuthModule } from './auth/auth.module';
+import { PredictionsModule } from './predictions/predictions.module';
+import { MlModule } from './ml/ml.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { AuthModule } from './auth/auth.module';
     PrismaModule,
     UploadsModule,
     AuthModule,
+    PredictionsModule,
+    MlModule,
   ],
   controllers: [AppController],
   providers: [AppService],

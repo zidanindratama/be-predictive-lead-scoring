@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   HttpCode,
+  Patch,
   Post,
   Req,
   Res,
@@ -116,7 +117,7 @@ export class AuthController {
     return req.user;
   }
 
-  @Post('me')
+  @Patch('me')
   @Auth()
   @UsePipes(new ZodValidationPipe(UpdateProfileSchema))
   async updateMe(@Req() req, @Body() dto: any) {
