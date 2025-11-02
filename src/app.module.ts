@@ -12,6 +12,7 @@ import { CustomersModule } from './customers/customers.module';
 import { PredictionsModule } from './predictions/predictions.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
 import { MlModule } from './ml/ml.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { MlModule } from './ml/ml.module';
     PredictionsModule,
     CampaignsModule,
     MlModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
