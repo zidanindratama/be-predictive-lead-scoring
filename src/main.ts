@@ -9,7 +9,10 @@ import { ZodValidationPipe } from './common/pipes/zod-validation.pipe';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use(helmet());
-  app.enableCors();
+  app.enableCors({
+    origin: [/localhost:\d+$/, /\.vercel\.app$/],
+    credentials: true,
+  });
   app.use(cookieParser());
   app.useGlobalInterceptors(new ResponseInterceptor());
   app.useGlobalFilters(new HttpExceptionFilter());

@@ -7,6 +7,7 @@ import authConfig from './config/auth.config';
 import cloudinaryConfig from './config/cloudinary.config';
 import { PrismaModule } from './prisma/prisma.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { UploadsModule } from './uploads/uploads.module';
     }),
     PrismaModule,
     UploadsModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -13,3 +13,70 @@ datasource db {
   provider = "mongodb"
   url      = env("DATABASE_URL")
 }
+
+enum Role {
+  ADMIN
+  STAFF
+  USER
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(USER)
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  extId          String?
+  name           String
+  age            Int
+  job            String
+  marital        String
+  education      String
+  housing        String
+  loan           String
+  contact        String
+  month          String
+  day_of_week    String
+  campaign       Int
+  pdays          Int
+  previous       Int
+  poutcome       String
+  emp_var_rate   Float
+  cons_price_idx Float
+  cons_conf_idx  Float
+  euribor3m      Float
+  nr_employed    Float
+  createdById    String?      @db.ObjectId
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  Prediction     Prediction[]
+}
+
+model Prediction {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerId     String   @db.ObjectId
+  customer       Customer @relation(fields: [customerId], references: [id])
+  predictedClass String
+  probabilityYes Float
+  probabilityNo  Float
+  timestamp      DateTime @default(now())
+  source         String
+}
+
+model Campaign {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  criteria     Json
+  totalTargets Int
+  yesCount     Int
+  noCount      Int
+  createdById  String?  @db.ObjectId
+  createdAt    DateTime @default(now())
+}
