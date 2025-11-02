@@ -10,6 +10,7 @@ import { UploadsModule } from './uploads/uploads.module';
 import { AuthModule } from './auth/auth.module';
 import { CustomersModule } from './customers/customers.module';
 import { PredictionsModule } from './predictions/predictions.module';
+import { CampaignsModule } from './campaigns/campaigns.module';
 import { MlModule } from './ml/ml.module';
 
 @Module({
@@ -23,6 +24,7 @@ import { MlModule } from './ml/ml.module';
     AuthModule,
     CustomersModule,
     PredictionsModule,
+    CampaignsModule,
     MlModule,
   ],
   controllers: [AppController],
