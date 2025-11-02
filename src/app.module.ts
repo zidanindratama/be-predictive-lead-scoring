@@ -8,6 +8,7 @@ import cloudinaryConfig from './config/cloudinary.config';
 import { PrismaModule } from './prisma/prisma.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { AuthModule } from './auth/auth.module';
+import { CustomersModule } from './customers/customers.module';
 import { PredictionsModule } from './predictions/predictions.module';
 import { MlModule } from './ml/ml.module';
 
@@ -20,6 +21,7 @@ import { MlModule } from './ml/ml.module';
     PrismaModule,
     UploadsModule,
     AuthModule,
+    CustomersModule,
     PredictionsModule,
     MlModule,
   ],
