@@ -1,7 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import {
+  CreateCustomerDto,
+  UpdateCustomerDto,
+  ListCustomersQueryDto,
+} from './dtos/customer.dto';
+import {
+  makeSearchWhere,
+  buildDateRange,
+  resolveSort,
+  paginate,
+  meta,
+} from '../common/utils/list.util';
 
 @Injectable()
 export class CustomersService {
@@ -45,5 +57,98 @@ export class CustomersService {
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       data: buf,
     };
+  }
+
+  async list(query: ListCustomersQueryDto) {
+    const { page, take, skip } = paginate(query.page, query.limit);
+
+    const where = this.buildWhere(query);
+
+    const dateRange = buildDateRange(query.from, query.to);
+    if (dateRange) where.createdAt = dateRange;
+
+    const orderBy = resolveSort(
+      query.sortBy,
+      query.sortDir!,
+      ['createdAt', 'name', 'age', 'job', 'marital', 'education'],
+      { createdAt: 'desc' },
+    );
+
+    const [items, total] = await Promise.all([
+      this.prisma.customer.findMany({
+        where,
+        orderBy,
+        skip,
+        take,
+      }),
+      this.prisma.customer.count({ where }),
+    ]);
+
+    return {
+      items,
+      meta: meta(total, page, take),
+    };
+  }
+
+  async create(data: CreateCustomerDto) {
+    return this.prisma.customer.create({ data });
+  }
+
+  async findById(id: string) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id },
+    });
+
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    return customer;
+  }
+
+  async update(id: string, data: UpdateCustomerDto) {
+    await this.findById(id);
+
+    return this.prisma.customer.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async delete(id: string) {
+    const customer = await this.findById(id);
+
+    await this.prisma.customer.delete({
+      where: { id },
+    });
+
+    return customer;
+  }
+
+  private buildWhere(query: Record<string, any>) {
+    const where: any = {};
+
+    const textFields = ['job', 'marital', 'education', 'contact'];
+    for (const key of textFields) {
+      if (query[key])
+        where[key] = { contains: query[key], mode: 'insensitive' };
+    }
+
+    const searchWhere = makeSearchWhere(query.q, [
+      'name',
+      'extId',
+      ...textFields,
+    ]);
+    if (searchWhere) {
+      Object.assign(where, searchWhere);
+    }
+
+    if (query.ageMin || query.ageMax) {
+      where.age = {};
+      if (query.ageMin) where.age.gte = query.ageMin;
+      if (query.ageMax) where.age.lte = query.ageMax;
+    }
+
+    return where;
   }
 }
