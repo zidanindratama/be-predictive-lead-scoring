@@ -6,8 +6,8 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { Request, Response } from 'express';
-import { Prisma } from 'generated/prisma/client';
 import { ZodError } from 'zod';
 
 @Catch()
