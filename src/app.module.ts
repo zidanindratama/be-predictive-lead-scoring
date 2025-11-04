@@ -7,6 +7,13 @@ import authConfig from './config/auth.config';
 import cloudinaryConfig from './config/cloudinary.config';
 import { PrismaModule } from './prisma/prisma.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { AuthModule } from './auth/auth.module';
+import { CustomersModule } from './customers/customers.module';
+import { PredictionsModule } from './predictions/predictions.module';
+import { CampaignsModule } from './campaigns/campaigns.module';
+import { MlModule } from './ml/ml.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -16,6 +23,13 @@ import { UploadsModule } from './uploads/uploads.module';
     }),
     PrismaModule,
     UploadsModule,
+    AuthModule,
+    CustomersModule,
+    PredictionsModule,
+    CampaignsModule,
+    MlModule,
+    AnalyticsModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
