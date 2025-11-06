@@ -50,27 +50,6 @@ export class CustomersController {
     return this.svc.create(data);
   }
 
-  @Get(':id')
-  findById(@Param('id') id: string) {
-    return this.svc.findById(id);
-  }
-
-  @Patch(':id')
-  @Roles('ADMIN', 'STAFF')
-  update(
-    @Param('id') id: string,
-    @Body(new ZodValidationPipe(UpdateCustomerSchema))
-    data: UpdateCustomerDto,
-  ) {
-    return this.svc.update(id, data);
-  }
-
-  @Delete(':id')
-  @Roles('ADMIN')
-  delete(@Param('id') id: string) {
-    return this.svc.delete(id);
-  }
-
   @Post('import')
   @Roles('ADMIN', 'STAFF')
   @UseInterceptors(FileInterceptor('file'))
@@ -94,5 +73,26 @@ export class CustomersController {
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     return res.send(data);
+  }
+
+  @Get(':id')
+  findById(@Param('id') id: string) {
+    return this.svc.findById(id);
+  }
+
+  @Patch(':id')
+  @Roles('ADMIN', 'STAFF')
+  update(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(UpdateCustomerSchema))
+    data: UpdateCustomerDto,
+  ) {
+    return this.svc.update(id, data);
+  }
+
+  @Delete(':id')
+  @Roles('ADMIN')
+  delete(@Param('id') id: string) {
+    return this.svc.delete(id);
   }
 }
