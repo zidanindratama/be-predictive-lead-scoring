@@ -13,8 +13,6 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
-import { PrismaService } from '../prisma/prisma.service';
-import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { Auth } from '../common/decorators/auth.decorator';
 import { JwtRefreshGuard } from '../common/guards/jwt-refresh.guard';
@@ -32,41 +30,17 @@ const cookieBase = {
 
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private prisma: PrismaService,
-    private auth: AuthService,
-  ) {}
+  constructor(private auth: AuthService) {}
 
   @Post('register')
   @UsePipes(new ZodValidationPipe(RegisterSchema))
   async register(@Body() dto: any, @Res({ passthrough: true }) res: Response) {
-    const hashed = await bcrypt.hash(dto.password, 10);
-    const created = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        password: hashed,
-        name: dto.name,
-        role: dto.role ?? 'USER',
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-      },
-    });
-    const tokens = this.auth.signTokens({
-      id: created.id,
-      email: created.email,
-      role: created.role,
-      name: created.name,
-    });
+    const { user, tokens } = await this.auth.register(dto);
     res.cookie('rt', tokens.rt, {
       ...cookieBase,
       maxAge: 1000 * 60 * 60 * 24 * 7,
     });
-    return { user: created, accessToken: tokens.at };
+    return { user, accessToken: tokens.at };
   }
 
   @Post('login')
@@ -114,25 +88,13 @@ export class AuthController {
   @Get('me')
   @Auth()
   me(@Req() req) {
-    return req.user;
+    return this.auth.getMe(req.user.sub);
   }
 
   @Patch('me')
   @Auth()
   @UsePipes(new ZodValidationPipe(UpdateProfileSchema))
   async updateMe(@Req() req, @Body() dto: any) {
-    const user = await this.prisma.user.update({
-      where: { id: req.user.sub },
-      data: { ...dto },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        avatarUrl: true,
-        updatedAt: true,
-      },
-    });
-    return user;
+    return this.auth.updateMe(req.user.sub, dto);
   }
 }
