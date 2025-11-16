@@ -20,7 +20,6 @@ import {
   CreateCampaignDto,
   CreateCampaignSchema,
   UpdateCampaignDto,
-  UpdateCampaignSchema,
 } from './dtos/campaign.dto';
 
 @Controller('campaigns')
