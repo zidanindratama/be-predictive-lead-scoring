@@ -21,6 +21,34 @@ export class AuthService {
     private config: ConfigService,
   ) {}
 
+  async register(dto: any) {
+    const hashed = await bcrypt.hash(dto.password, 10);
+    const created = await this.prisma.user.create({
+      data: {
+        email: dto.email,
+        password: hashed,
+        name: dto.name,
+        role: dto.role ?? 'USER',
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+
+    const tokens = this.signTokens({
+      id: created.id,
+      email: created.email,
+      role: created.role,
+      name: created.name,
+    });
+
+    return { user: created, tokens };
+  }
+
   async validateUser(email: string, pass: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) return null;
@@ -52,5 +80,35 @@ export class AuthService {
       expiresIn: refreshTtl,
     });
     return { at, rt };
+  }
+
+  async getMe(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        avatarUrl: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  async updateMe(userId: string, dto: any) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { ...dto },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        avatarUrl: true,
+        updatedAt: true,
+      },
+    });
   }
 }
