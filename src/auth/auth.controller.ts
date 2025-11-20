@@ -19,6 +19,8 @@ import { JwtRefreshGuard } from '../common/guards/jwt-refresh.guard';
 import { LoginSchema } from './dtos/login.dto';
 import { RegisterSchema } from './dtos/register.dto';
 import { UpdateProfileSchema } from './dtos/update-profile.dto';
+import { ForgotPasswordSchema } from './dtos/forgot-password.dto';
+import { ResetPasswordSchema } from './dtos/reset-password.dto';
 
 const cookieBase = {
   httpOnly: true,
@@ -96,5 +98,19 @@ export class AuthController {
   @UsePipes(new ZodValidationPipe(UpdateProfileSchema))
   async updateMe(@Req() req, @Body() dto: any) {
     return this.auth.updateMe(req.user.sub, dto);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(200)
+  @UsePipes(new ZodValidationPipe(ForgotPasswordSchema))
+  async forgotPassword(@Body() dto: any) {
+    return this.auth.requestForgotPassword(dto);
+  }
+
+  @Post('reset-password')
+  @HttpCode(200)
+  @UsePipes(new ZodValidationPipe(ResetPasswordSchema))
+  async resetPassword(@Body() dto: any) {
+    return this.auth.resetPassword(dto);
   }
 }
