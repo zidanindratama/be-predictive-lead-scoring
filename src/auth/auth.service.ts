@@ -2,6 +2,8 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  UnauthorizedException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
@@ -61,11 +63,14 @@ export class AuthService {
         templateName: 'welcome-user',
         context: {
           name: created.name,
-          actionUrl: '/',
+          actionUrl: this.buildFrontendUrl('/'),
+          contactUrl: this.buildFrontendUrl('/contact'),
         },
       });
     } catch (error) {
-      console.error('Failed to send welcome email:', error);
+      throw new InternalServerErrorException(
+        'Your account has been created successfully, but we could not deliver the welcome email at this time.',
+      );
     }
 
     return { user: created, tokens };
@@ -138,6 +143,11 @@ export class AuthService {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
+  private buildFrontendUrl(path: string): string {
+    const frontendUrl = this.config.get<string>('app.frontendUrl')!;
+    return `${frontendUrl}${path}`;
+  }
+
   async requestForgotPassword(
     dto: ForgotPasswordDto,
   ): Promise<{ message: string }> {
@@ -183,11 +193,14 @@ export class AuthService {
         context: {
           name: user.name,
           otp: code,
-          actionUrl: '/auth/reset-password',
+          actionUrl: this.buildFrontendUrl('/auth/reset-password'),
+          contactUrl: this.buildFrontendUrl('/contact'),
         },
       });
     } catch (error) {
-      console.error('Failed to send email:', error);
+      throw new InternalServerErrorException(
+        'We were unable to send the password reset email. Please try again in a moment.',
+      );
     }
 
     return { message: 'If your email is registered, we have sent an OTP' };
