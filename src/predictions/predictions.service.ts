@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MlService } from '../ml/ml.service';
@@ -147,6 +148,7 @@ export class PredictionsService {
     const cust = await this.prisma.customer.findUnique({
       where: { id: customerId },
     });
+
     if (!cust) throw new NotFoundException('Customer not found');
 
     const payload = {
@@ -154,13 +156,15 @@ export class PredictionsService {
       job: cust.job,
       marital: cust.marital,
       education: cust.education,
-      default: 'no',
-      housing: cust.housing,
-      loan: cust.loan,
+
+      default: this.sanitizeBinary(cust.creditDefault),
+      housing: this.sanitizeBinary(cust.housing),
+      loan: this.sanitizeBinary(cust.loan),
+
       contact: cust.contact,
       month: cust.month,
       day_of_week: cust.day_of_week,
-      duration: 0,
+      duration: cust.duration,
       campaign: cust.campaign,
       pdays: cust.pdays,
       previous: cust.previous,
@@ -172,17 +176,37 @@ export class PredictionsService {
       nr_employed: cust.nr_employed,
     };
 
+    // 3. Call ML API
     const res = await this.ml.predict(payload);
+
+    // 4. Check Response Validity
+    if (!res || !res.success || !res.data) {
+      console.error('ML Response Invalid:', res);
+      throw new InternalServerErrorException(
+        'Invalid response from ML service',
+      );
+    }
+
+    // 5. Save Prediction
     const saved = await this.prisma.prediction.create({
       data: {
         customerId,
-        predictedClass: res?.data?.predicted_class ?? 'NO',
-        probabilityYes: res?.data?.probability_yes ?? 0,
-        probabilityNo: res?.data?.probability_no ?? 1,
-        source: 'single',
+        predictedClass: res.data.predicted_class,
+        probabilityYes: res.data.probability_yes,
+        probabilityNo: res.data.probability_no,
+        source: 'single_predict',
       },
     });
+
     return saved;
+  }
+
+  // Helper: Sanitasi binary fields (yes/no/unknown)
+  private sanitizeBinary(val: string): string {
+    if (val === 'yes') return 'yes';
+    if (val === 'no') return 'no';
+    // Jika value 'unknown' atau string aneh lainnya, fallback ke 'no' (Safe approach)
+    return 'no';
   }
 
   private normalizeProbs(
@@ -206,21 +230,21 @@ export class PredictionsService {
       if (Math.abs(sum - 1) > 0.05) {
         const y = py / sum;
         const n = pn / sum;
-        return { probabilityYes: +y.toFixed(3), probabilityNo: +n.toFixed(3) };
+        return { probabilityYes: +y.toFixed(4), probabilityNo: +n.toFixed(4) };
       }
-      return { probabilityYes: +py.toFixed(3), probabilityNo: +pn.toFixed(3) };
+      return { probabilityYes: +py.toFixed(4), probabilityNo: +pn.toFixed(4) };
     }
 
     if (py !== undefined) {
       return {
-        probabilityYes: +py.toFixed(3),
-        probabilityNo: +(1 - py).toFixed(3),
+        probabilityYes: +py.toFixed(4),
+        probabilityNo: +(1 - py).toFixed(4),
       };
     }
     if (pn !== undefined) {
       return {
-        probabilityNo: +pn.toFixed(3),
-        probabilityYes: +(1 - pn).toFixed(3),
+        probabilityNo: +pn.toFixed(4),
+        probabilityYes: +(1 - pn).toFixed(4),
       };
     }
 
