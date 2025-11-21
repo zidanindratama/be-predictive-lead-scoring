@@ -11,7 +11,7 @@ import {
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { AuthService } from './auth.service';
 import { Auth } from '../common/decorators/auth.decorator';
@@ -36,12 +36,18 @@ export class AuthController {
 
   @Post('register')
   @UsePipes(new ZodValidationPipe(RegisterSchema))
-  async register(@Body() dto: any, @Res({ passthrough: true }) res: Response) {
-    const { user, tokens } = await this.auth.register(dto);
+  async register(
+    @Body() dto: any,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { user, tokens } = await this.auth.register(dto, req.headers);
+
     res.cookie('rt', tokens.rt, {
       ...cookieBase,
       maxAge: 1000 * 60 * 60 * 24 * 7,
     });
+
     return { user, accessToken: tokens.at };
   }
 
@@ -103,8 +109,8 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(200)
   @UsePipes(new ZodValidationPipe(ForgotPasswordSchema))
-  async forgotPassword(@Body() dto: any) {
-    return this.auth.requestForgotPassword(dto);
+  async forgotPassword(@Body() dto: any, @Req() req: Request) {
+    return this.auth.requestForgotPassword(dto, req.headers);
   }
 
   @Post('reset-password')

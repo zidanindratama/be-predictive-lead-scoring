@@ -12,6 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ForgotPasswordDto } from './dtos/forgot-password.dto';
 import { ResetPasswordDto } from './dtos/reset-password.dto';
+import { buildFrontendUrl } from '../common/utils/get-frontend-domain.util';
 
 type JwtClaims = {
   sub: string;
@@ -31,7 +32,7 @@ export class AuthService {
     private emailService: EmailService,
   ) {}
 
-  async register(dto: any) {
+  async register(dto: any, headers: Record<string, any>) {
     const hashed = await bcrypt.hash(dto.password, 10);
     const created = await this.prisma.user.create({
       data: {
@@ -63,8 +64,8 @@ export class AuthService {
         templateName: 'welcome-user',
         context: {
           name: created.name,
-          actionUrl: this.buildFrontendUrl('/'),
-          contactUrl: this.buildFrontendUrl('/contact'),
+          actionUrl: buildFrontendUrl(headers, '/'),
+          contactUrl: buildFrontendUrl(headers, '/contact'),
         },
       });
     } catch (error) {
@@ -143,13 +144,9 @@ export class AuthService {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
-  private buildFrontendUrl(path: string): string {
-    const frontendUrl = this.config.get<string>('app.frontendUrl')!;
-    return `${frontendUrl}${path}`;
-  }
-
   async requestForgotPassword(
     dto: ForgotPasswordDto,
+    headers: Record<string, any>,
   ): Promise<{ message: string }> {
     const { email } = dto;
 
@@ -193,8 +190,8 @@ export class AuthService {
         context: {
           name: user.name,
           otp: code,
-          actionUrl: this.buildFrontendUrl('/auth/reset-password'),
-          contactUrl: this.buildFrontendUrl('/contact'),
+          actionUrl: buildFrontendUrl(headers, '/auth/reset-password'),
+          contactUrl: buildFrontendUrl(headers, '/contact'),
         },
       });
     } catch (error) {
