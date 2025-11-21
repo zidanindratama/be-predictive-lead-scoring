@@ -19,10 +19,9 @@ const JOBS = [
   'student',
   'technician',
   'unemployed',
-  'unknown',
 ] as const;
 
-const MARITAL = ['single', 'married', 'divorced', 'unknown'] as const;
+const MARITAL = ['single', 'married', 'divorced'] as const;
 
 const EDUCATION = [
   'basic.4y',
@@ -32,11 +31,10 @@ const EDUCATION = [
   'illiterate',
   'professional.course',
   'university.degree',
-  'unknown',
 ] as const;
 
-const CREDIT_DEFAULTS = ['yes', 'no', 'unknown'] as const;
-const HOUSING_LOAN = ['yes', 'no', 'unknown'] as const;
+const CREDIT_DEFAULTS = ['yes', 'no'] as const;
+const HOUSING_LOAN = ['yes', 'no'] as const;
 const CONTACT = ['cellular', 'telephone'] as const;
 const POUTCOME = ['failure', 'nonexistent', 'success'] as const;
 
@@ -101,49 +99,75 @@ async function seedUsers() {
 }
 
 async function seedCustomers(count = 100) {
-  console.log(`Seeding ${count} customers...`);
+  console.log(`Seeding ${count} customers (Target: 75% Likely Success)...`);
   const customers = [];
 
   for (let i = 0; i < count; i++) {
-    const age = faker.number.int({ min: 18, max: 85 });
+    const isSuccessProfile = Math.random() < 0.75;
 
-    const row = {
+    let row: any = {};
+
+    const common = {
       name: faker.person.fullName(),
       extId: faker.string.alphanumeric({ length: 8 }),
-      age,
-      job: rand(JOBS),
-      marital: rand(MARITAL),
-      education: rand(EDUCATION),
-
-      creditDefault: rand(CREDIT_DEFAULTS),
-
-      housing: rand(HOUSING_LOAN),
-      loan: rand(HOUSING_LOAN),
-      contact: rand(CONTACT),
-      month: rand(MONTHS),
+      age: faker.number.int({ min: 18, max: 85 }),
+      creditDefault: 'no',
       day_of_week: rand(DAYS),
-
-      duration: faker.number.int({ min: 0, max: 4900 }),
-
-      campaign: faker.number.int({ min: 1, max: 20 }),
-      pdays: faker.helpers.arrayElement([
-        999,
-        faker.number.int({ min: 0, max: 30 }),
-      ]),
-      previous: faker.number.int({ min: 0, max: 7 }),
-      poutcome: rand(POUTCOME),
-
-      emp_var_rate: f(-3.4, 1.4, 1),
-      cons_price_idx: f(92.0, 95.0, 3),
-      cons_conf_idx: f(-50.0, -20.0, 1),
-      euribor3m: f(0.6, 5.0, 3),
-      nr_employed: f(4900, 5228, 1),
-
+      campaign: faker.number.int({ min: 1, max: 5 }),
       createdAt: faker.date.between({
         from: '2024-01-01T00:00:00.000Z',
         to: new Date(),
       }),
     };
+
+    if (isSuccessProfile) {
+      row = {
+        ...common,
+        job: rand(['admin.', 'retired', 'student', 'technician']),
+        marital: rand(['single', 'married']),
+        education: rand(['university.degree', 'professional.course']),
+        housing: rand(['yes', 'yes', 'no']),
+        loan: 'no',
+        contact: 'cellular',
+        month: rand(['oct', 'sep', 'mar', 'dec', 'apr']),
+
+        duration: faker.number.int({ min: 350, max: 1500 }),
+
+        pdays: faker.number.int({ min: 0, max: 15 }),
+        previous: faker.number.int({ min: 1, max: 5 }),
+        poutcome: 'success',
+
+        emp_var_rate: f(-3.0, -1.0, 1),
+        cons_price_idx: f(92.0, 94.0, 3),
+        cons_conf_idx: f(-50.0, -35.0, 1),
+        euribor3m: f(0.6, 1.5, 3),
+        nr_employed: f(4900, 5100, 1),
+      };
+    } else {
+      row = {
+        ...common,
+        job: rand(JOBS),
+        marital: rand(MARITAL),
+        education: rand(EDUCATION),
+        housing: rand(HOUSING_LOAN),
+        loan: rand(HOUSING_LOAN),
+        contact: 'telephone',
+        month: rand(['may', 'jul', 'nov']),
+
+        duration: faker.number.int({ min: 0, max: 180 }),
+
+        pdays: 999,
+        previous: 0,
+        poutcome: rand(['nonexistent', 'failure']),
+
+        emp_var_rate: f(1.1, 1.4, 1),
+        cons_price_idx: f(93.0, 95.0, 3),
+        cons_conf_idx: f(-42.0, -30.0, 1),
+        euribor3m: f(3.5, 5.0, 3),
+        nr_employed: f(5100, 5228, 1),
+      };
+    }
+
     customers.push(row);
   }
 
@@ -159,19 +183,19 @@ async function seedCampaigns(createdById?: string) {
   console.log('Seeding campaigns...');
   const camps = [
     {
-      name: 'Tech Workers < 35',
+      name: 'High Value Targets (Success Oriented)',
       criteria: {
-        job: { in: ['technician', 'management', 'services'] },
-        age: { lt: 35 },
+        job: { in: ['admin.', 'retired', 'student'] },
+        contact: 'cellular',
       },
     },
     {
-      name: 'Retired Prospects',
-      criteria: { job: 'retired', age: { gte: 55 } },
+      name: 'Previous Success Campaign',
+      criteria: { poutcome: 'success' },
     },
     {
-      name: 'University Graduates',
-      criteria: { education: 'university.degree' },
+      name: 'General Audience',
+      criteria: { housing: 'yes' },
     },
   ];
 
@@ -193,77 +217,96 @@ async function seedCampaigns(createdById?: string) {
   return created;
 }
 
-async function seedPredictions(customerIds: string[]) {
-  console.log('Seeding predictions...');
-  const N = Math.floor(customerIds.length * 0.8);
+async function seedPredictions(customers: any[]) {
+  console.log('Seeding predictions (Matching customer profile)...');
   const data = [];
 
-  for (let i = 0; i < N; i++) {
-    const customerId = rand(customerIds);
-    const yesBias = faker.number.float({ min: 0.1, max: 0.9 });
-    const { py, pn } = prob(yesBias);
-    const predictedClass = py >= pn ? 'YES' : 'NO';
+  for (const cust of customers) {
+    // 🔍 DEBUG: Pastikan duration terbaca
+    if (cust.duration === undefined) {
+      console.warn(
+        `⚠️ Warning: Duration is undefined for ${cust.name}. Did you run 'npx prisma generate'?`,
+      );
+    }
+
+    // Logika Simulasi AI Lebih Agresif:
+    let yesChance = 0.05; // Base chance sangat kecil
+
+    // Jika durasi telepon lama (> 5 menit), peluang closing SANGAT TINGGI
+    if (cust.duration > 300) yesChance += 0.85;
+
+    // Faktor pendukung lain
+    if (cust.poutcome === 'success') yesChance += 0.1;
+    if (cust.contact === 'cellular') yesChance += 0.05;
+    if (cust.month === 'oct' || cust.month === 'mar') yesChance += 0.1;
+
+    // Cap max 0.99 dan min 0.01
+    yesChance = Math.min(0.99, Math.max(0.01, yesChance));
+
+    const { py, pn } = prob(yesChance);
+
+    // TENTUKAN KELAS:
+    // Pastikan string 'YES' konsisten (Huruf Besar)
+    const predictedClass = py >= 0.5 ? 'YES' : 'NO';
+
     const ts = faker.date.between({
       from: faker.date.recent({ days: 60 }),
       to: new Date(),
     });
 
     data.push({
-      customerId,
+      customerId: cust.id,
       predictedClass,
       probabilityYes: py,
       probabilityNo: pn,
-      source: faker.helpers.arrayElement([
-        'model_v1',
-        'manual_upload',
-        'campaign:gen_z',
-      ]),
+      source: 'seed_script',
       timestamp: ts,
     });
   }
 
   await prisma.prediction.createMany({ data });
+  console.log(`✅ Created ${data.length} predictions.`);
 }
 
 async function recomputeCampaignCounters() {
   console.log('Recomputing campaign counters...');
   const camps = await prisma.campaign.findMany();
+  const allCustomers = await prisma.customer.findMany();
+
+  const allPredictions = await prisma.prediction.findMany();
 
   for (const c of camps) {
-    const customers = await prisma.customer.findMany();
-
-    const filtered = customers.filter((cust) => {
+    const filtered = allCustomers.filter((cust) => {
       const cr: any = c.criteria ?? {};
       let ok = true;
 
-      if (cr.job) {
-        if (typeof cr.job === 'string') ok &&= cust.job === cr.job;
-        else if (cr.job.in) ok &&= cr.job.in.includes(cust.job as any);
-      }
-      if (cr.age) {
-        if (cr.age.lt !== undefined) ok &&= cust.age < cr.age.lt;
-        if (cr.age.lte !== undefined) ok &&= cust.age <= cr.age.lte;
-        if (cr.age.gt !== undefined) ok &&= cust.age > cr.age.gt;
-        if (cr.age.gte !== undefined) ok &&= cust.age >= cr.age.gte;
-      }
-      if (cr.education) {
-        if (typeof cr.education === 'string')
-          ok &&= cust.education === cr.education;
-      }
+      if (cr.job && cr.job.in) ok &&= cr.job.in.includes(cust.job as any);
+      if (cr.contact) ok &&= cust.contact === cr.contact;
+      if (cr.poutcome) ok &&= cust.poutcome === cr.poutcome;
+      if (cr.housing) ok &&= cust.housing === cr.housing;
 
       return ok;
     });
 
-    const preds = await prisma.prediction.findMany({
-      where: { customerId: { in: filtered.map((f) => f.id) } },
-    });
-    const yes = preds.filter((p) => p.predictedClass === 'YES').length;
-    const no = preds.filter((p) => p.predictedClass === 'NO').length;
+    const targetIds = filtered.map((f) => f.id);
+    const campaignPreds = allPredictions.filter((p) =>
+      targetIds.includes(p.customerId),
+    );
+
+    const yes = campaignPreds.filter(
+      (p) => p.predictedClass === 'YES' || p.probabilityYes >= 0.5,
+    ).length;
+
+    const no = campaignPreds.length - yes;
 
     await prisma.campaign.update({
       where: { id: c.id },
       data: { totalTargets: filtered.length, yesCount: yes, noCount: no },
     });
+
+    console.log(
+      `Campaign: ${c.name} -> Targets: ${filtered.length}, YES: ${yes}, NO: ${no}`,
+    );
   }
 }
 
@@ -285,7 +328,9 @@ async function main() {
   const customers = await seedCustomers(100);
 
   await seedCampaigns(createdBy?.id);
-  await seedPredictions(customers.map((c) => c.id));
+
+  await seedPredictions(customers);
+
   await recomputeCampaignCounters();
 
   console.log('✅ Seeding done!');

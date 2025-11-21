@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MlService } from '../ml/ml.service';
 import {
@@ -8,11 +13,13 @@ import {
   meta,
   paginate,
   resolveSort,
-} from 'src/common/utils/list.util';
+} from '../common/utils/list.util';
 import { CreateCampaignDto, UpdateCampaignDto } from './dtos/campaign.dto';
 
 @Injectable()
 export class CampaignsService {
+  private readonly logger = new Logger(CampaignsService.name);
+
   constructor(
     private prisma: PrismaService,
     private ml: MlService,
@@ -78,6 +85,11 @@ export class CampaignsService {
 
     const where: any = camp.criteria || {};
     const targets = await this.prisma.customer.findMany({ where });
+
+    this.logger.log(
+      `Starting Campaign "${camp.name}" with ${targets.length} targets.`,
+    );
+
     let yes = 0,
       no = 0;
 
@@ -87,13 +99,17 @@ export class CampaignsService {
         job: c.job,
         marital: c.marital,
         education: c.education,
-        default: 'no',
-        housing: c.housing,
-        loan: c.loan,
+
+        default: this.sanitizeBinary(c.creditDefault),
+        housing: this.sanitizeBinary(c.housing),
+        loan: this.sanitizeBinary(c.loan),
+
         contact: c.contact,
         month: c.month,
         day_of_week: c.day_of_week,
-        duration: 0,
+
+        duration: c.duration,
+
         campaign: c.campaign,
         pdays: c.pdays,
         previous: c.previous,
@@ -105,26 +121,44 @@ export class CampaignsService {
         nr_employed: c.nr_employed,
       };
 
-      const res = await this.ml.predict(payload);
-      const klass = res?.data?.predicted_class ?? 'NO';
-      yes += klass === 'YES' ? 1 : 0;
-      no += klass === 'NO' ? 1 : 0;
+      try {
+        const res = await this.ml.predict(payload);
 
-      await this.prisma.prediction.create({
-        data: {
-          customerId: c.id,
-          predictedClass: klass,
-          probabilityYes: res?.data?.probability_yes ?? 0,
-          probabilityNo: res?.data?.probability_no ?? 1,
-          source: `campaign:${id}`,
-        },
-      });
+        if (!res || !res.success || !res.data) {
+          this.logger.warn(`Invalid ML response for ${c.name}`);
+          continue;
+        }
+
+        const klass = res.data.predicted_class;
+        const probYes = res.data.probability_yes;
+
+        console.log(
+          `[PREDICT] ${c.name} | Dur: ${c.duration}s | Poutcome: ${c.poutcome} | Result: ${klass} (${(probYes * 100).toFixed(1)}%)`,
+        );
+
+        yes += klass === 'YES' ? 1 : 0;
+        no += klass === 'NO' ? 1 : 0;
+
+        await this.prisma.prediction.create({
+          data: {
+            customerId: c.id,
+            predictedClass: klass,
+            probabilityYes: res.data.probability_yes,
+            probabilityNo: res.data.probability_no,
+            source: `campaign:${id}`,
+          },
+        });
+      } catch (error) {
+        this.logger.error(`Failed to predict for ${c.name}: ${error.message}`);
+      }
     }
 
     const updated = await this.prisma.campaign.update({
       where: { id },
       data: { totalTargets: targets.length, yesCount: yes, noCount: no },
     });
+
+    this.logger.log(`Campaign Finished. YES: ${yes}, NO: ${no}`);
 
     return {
       campaign: updated,
@@ -192,5 +226,11 @@ export class CampaignsService {
         noCount: no,
       },
     });
+  }
+
+  private sanitizeBinary(val: string): string {
+    if (val === 'yes') return 'yes';
+    if (val === 'no') return 'no';
+    return 'no';
   }
 }
