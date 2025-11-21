@@ -43,11 +43,13 @@ model Customer {
   job            String
   marital        String
   education      String
+  creditDefault  String       @map("default")
   housing        String
   loan           String
   contact        String
   month          String
   day_of_week    String
+  duration       Int
   campaign       Int
   pdays          Int
   previous       Int
@@ -87,9 +89,9 @@ model Campaign {
 
 model Otp {
   id         String     @id @default(auto()) @map("_id") @db.ObjectId
-  identifier String   
-  code       String   
-  purpose    OtpPurpose 
+  identifier String
+  code       String
+  purpose    OtpPurpose
   expiresAt  DateTime
   createdAt  DateTime   @default(now())
 

@@ -6,6 +6,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const ROLES = ['ADMIN', 'STAFF', 'USER'] as const;
+
 const JOBS = [
   'admin.',
   'blue-collar',
@@ -18,11 +19,27 @@ const JOBS = [
   'student',
   'technician',
   'unemployed',
+  'unknown',
 ] as const;
-const MARITAL = ['single', 'married', 'divorced'] as const;
-const EDUC = ['primary', 'secondary', 'tertiary', 'unknown'] as const;
+
+const MARITAL = ['single', 'married', 'divorced', 'unknown'] as const;
+
+const EDUCATION = [
+  'basic.4y',
+  'basic.6y',
+  'basic.9y',
+  'high.school',
+  'illiterate',
+  'professional.course',
+  'university.degree',
+  'unknown',
+] as const;
+
+const CREDIT_DEFAULTS = ['yes', 'no', 'unknown'] as const;
+const HOUSING_LOAN = ['yes', 'no', 'unknown'] as const;
 const CONTACT = ['cellular', 'telephone'] as const;
 const POUTCOME = ['failure', 'nonexistent', 'success'] as const;
+
 const MONTHS = [
   'jan',
   'feb',
@@ -37,6 +54,7 @@ const MONTHS = [
   'nov',
   'dec',
 ] as const;
+
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri'] as const;
 
 function rand<T>(arr: readonly T[]) {
@@ -82,41 +100,47 @@ async function seedUsers() {
   }
 }
 
-async function seedCustomers(minCount = 20) {
-  console.log('Seeding customers...');
+async function seedCustomers(count = 100) {
+  console.log(`Seeding ${count} customers...`);
   const customers = [];
-  for (let i = 0; i < minCount; i++) {
+
+  for (let i = 0; i < count; i++) {
     const age = faker.number.int({ min: 18, max: 85 });
-    const job = rand(JOBS);
-    const marital = rand(MARITAL);
-    const education = rand(EDUC);
-    const contact = rand(CONTACT);
-    const month = rand(MONTHS);
-    const day = rand(DAYS);
 
     const row = {
       name: faker.person.fullName(),
       extId: faker.string.alphanumeric({ length: 8 }),
       age,
-      job,
-      marital,
-      education,
-      contact,
-      housing: faker.helpers.arrayElement(['yes', 'no']),
-      loan: faker.helpers.arrayElement(['yes', 'no']),
-      month,
-      day_of_week: day,
-      campaign: faker.number.int({ min: 0, max: 30 }),
-      pdays: faker.number.int({ min: -1, max: 999 }),
-      previous: faker.number.int({ min: 0, max: 10 }),
+      job: rand(JOBS),
+      marital: rand(MARITAL),
+      education: rand(EDUCATION),
+
+      creditDefault: rand(CREDIT_DEFAULTS),
+
+      housing: rand(HOUSING_LOAN),
+      loan: rand(HOUSING_LOAN),
+      contact: rand(CONTACT),
+      month: rand(MONTHS),
+      day_of_week: rand(DAYS),
+
+      duration: faker.number.int({ min: 0, max: 4900 }),
+
+      campaign: faker.number.int({ min: 1, max: 20 }),
+      pdays: faker.helpers.arrayElement([
+        999,
+        faker.number.int({ min: 0, max: 30 }),
+      ]),
+      previous: faker.number.int({ min: 0, max: 7 }),
       poutcome: rand(POUTCOME),
+
       emp_var_rate: f(-3.4, 1.4, 1),
-      cons_price_idx: f(92.0, 95.0, 1),
+      cons_price_idx: f(92.0, 95.0, 3),
       cons_conf_idx: f(-50.0, -20.0, 1),
-      euribor3m: f(0.5, 5.0, 3),
-      nr_employed: f(4800, 5220, 1),
+      euribor3m: f(0.6, 5.0, 3),
+      nr_employed: f(4900, 5228, 1),
+
       createdAt: faker.date.between({
-        from: '2024-11-01T00:00:00.000Z',
+        from: '2024-01-01T00:00:00.000Z',
         to: new Date(),
       }),
     };
@@ -124,8 +148,9 @@ async function seedCustomers(minCount = 20) {
   }
 
   await prisma.customer.createMany({ data: customers });
+
   return prisma.customer.findMany({
-    take: minCount,
+    take: count,
     orderBy: { createdAt: 'desc' },
   });
 }
@@ -145,8 +170,8 @@ async function seedCampaigns(createdById?: string) {
       criteria: { job: 'retired', age: { gte: 55 } },
     },
     {
-      name: 'Students & Singles',
-      criteria: { OR: [{ job: 'student' }, { marital: 'single' }] },
+      name: 'University Graduates',
+      criteria: { education: 'university.degree' },
     },
   ];
 
@@ -170,16 +195,16 @@ async function seedCampaigns(createdById?: string) {
 
 async function seedPredictions(customerIds: string[]) {
   console.log('Seeding predictions...');
-  const N = Math.max(10, Math.min(30, Math.floor(customerIds.length * 1.5)));
+  const N = Math.floor(customerIds.length * 0.8);
   const data = [];
 
   for (let i = 0; i < N; i++) {
     const customerId = rand(customerIds);
-    const yesBias = faker.number.float({ min: 0.2, max: 0.6 });
+    const yesBias = faker.number.float({ min: 0.1, max: 0.9 });
     const { py, pn } = prob(yesBias);
     const predictedClass = py >= pn ? 'YES' : 'NO';
     const ts = faker.date.between({
-      from: faker.date.recent({ days: 120 }),
+      from: faker.date.recent({ days: 60 }),
       to: new Date(),
     });
 
@@ -188,7 +213,11 @@ async function seedPredictions(customerIds: string[]) {
       predictedClass,
       probabilityYes: py,
       probabilityNo: pn,
-      source: faker.helpers.arrayElement(['single', 'seed', 'campaign:demo']),
+      source: faker.helpers.arrayElement([
+        'model_v1',
+        'manual_upload',
+        'campaign:gen_z',
+      ]),
       timestamp: ts,
     });
   }
@@ -199,6 +228,7 @@ async function seedPredictions(customerIds: string[]) {
 async function recomputeCampaignCounters() {
   console.log('Recomputing campaign counters...');
   const camps = await prisma.campaign.findMany();
+
   for (const c of camps) {
     const customers = await prisma.customer.findMany();
 
@@ -216,18 +246,9 @@ async function recomputeCampaignCounters() {
         if (cr.age.gt !== undefined) ok &&= cust.age > cr.age.gt;
         if (cr.age.gte !== undefined) ok &&= cust.age >= cr.age.gte;
       }
-      if (cr.marital) {
-        if (typeof cr.marital === 'string') ok &&= cust.marital === cr.marital;
-        else if (cr.marital.in)
-          ok &&= cr.marital.in.includes(cust.marital as any);
-      }
-      if (cr.OR && Array.isArray(cr.OR)) {
-        const orOk = cr.OR.some((sub: any) => {
-          if (sub.job) return cust.job === sub.job;
-          if (sub.marital) return cust.marital === sub.marital;
-          return false;
-        });
-        ok &&= orOk;
+      if (cr.education) {
+        if (typeof cr.education === 'string')
+          ok &&= cust.education === cr.education;
       }
 
       return ok;
@@ -248,15 +269,21 @@ async function recomputeCampaignCounters() {
 
 async function main() {
   console.log('🧹 Clearing old data...');
-  await prisma.prediction.deleteMany({});
-  await prisma.campaign.deleteMany({});
-  await prisma.customer.deleteMany({});
-  await prisma.user.deleteMany({});
+  try {
+    await prisma.prediction.deleteMany({});
+    await prisma.campaign.deleteMany({});
+    await prisma.customer.deleteMany({});
+    await prisma.user.deleteMany({});
+  } catch (e) {
+    console.log('Error clearing tables (might be empty), continuing...');
+  }
 
   await seedUsers();
 
   const createdBy = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
-  const customers = await seedCustomers(20);
+
+  const customers = await seedCustomers(100);
+
   await seedCampaigns(createdBy?.id);
   await seedPredictions(customers.map((c) => c.id));
   await recomputeCampaignCounters();
