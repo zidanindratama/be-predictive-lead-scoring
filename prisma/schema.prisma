@@ -19,6 +19,11 @@ enum Role {
   USER
 }
 
+enum OtpPurpose {
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+}
+
 model User {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   email     String   @unique
@@ -78,4 +83,15 @@ model Campaign {
   noCount      Int
   createdById  String?  @db.ObjectId
   createdAt    DateTime @default(now())
+}
+
+model Otp {
+  id         String     @id @default(auto()) @map("_id") @db.ObjectId
+  identifier String   
+  code       String   
+  purpose    OtpPurpose 
+  expiresAt  DateTime
+  createdAt  DateTime   @default(now())
+
+  @@unique([identifier, purpose])
 }
