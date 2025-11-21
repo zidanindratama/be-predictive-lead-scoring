@@ -20,7 +20,7 @@ export class EmailService {
   private getTemplate(templateName: string): string {
     const templatePath = join(
       __dirname,
-      '../../assets/templates',
+      '../assets/templates',
       `${templateName}.hbs`,
     );
     return readFileSync(templatePath, 'utf8');

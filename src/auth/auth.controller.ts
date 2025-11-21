@@ -8,6 +8,7 @@ import {
   Post,
   Req,
   Res,
+  UnauthorizedException,
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
@@ -42,6 +43,10 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const { user, tokens } = await this.auth.register(dto, req.headers);
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
     res.cookie('rt', tokens.rt, {
       ...cookieBase,
