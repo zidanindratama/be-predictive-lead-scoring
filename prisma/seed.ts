@@ -6,21 +6,19 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const JOBS = [
-  'admin.',
+  'admin',
   'blue-collar',
   'entrepreneur',
   'housemaid',
   'management',
-  'retired',
   'self-employed',
   'services',
   'student',
   'technician',
   'unemployed',
-  'unknown',
 ] as const;
 
-const MARITAL = ['divorced', 'married', 'single', 'unknown'] as const;
+const MARITAL = ['married', 'single'] as const;
 
 const EDUCATION = [
   'basic.4y',
@@ -30,15 +28,12 @@ const EDUCATION = [
   'illiterate',
   'professional.course',
   'university.degree',
-  'unknown',
 ] as const;
 
 const BINARY_OPTIONS = ['yes', 'no', 'unknown'] as const;
 const CONTACT = ['cellular', 'telephone'] as const;
 
 const MONTHS = [
-  'jan',
-  'feb',
   'mar',
   'apr',
   'may',
@@ -62,12 +57,9 @@ const f = (min: number, max: number, fd = 1) =>
 
 function prob(yesChance = 0.3) {
   const target = Math.min(0.99, Math.max(0.01, yesChance));
-
   const variation = faker.number.float({ min: -0.1, max: 0.1 });
   let py = target + variation;
-
   py = Math.min(0.99, Math.max(0.01, py));
-
   const pn = 1 - py;
   return { py: Number(py.toFixed(4)), pn: Number(pn.toFixed(4)) };
 }
@@ -141,7 +133,7 @@ async function seedCustomers(count = 200) {
     if (isHighPotential) {
       row = {
         ...row,
-        job: rand(['student', 'retired', 'admin.', 'management']),
+        job: rand(['student', 'admin', 'management', 'technician']),
         marital: rand(['single', 'married']),
         education: rand(['university.degree', 'professional.course']),
         contact: 'cellular',
@@ -191,7 +183,7 @@ async function seedCustomers(count = 200) {
 }
 
 async function seedPredictions(customers: any[]) {
-  console.log('🔮 Seeding Predictions (Simulating ML Logic)...');
+  console.log('🔮 Seeding Predictions (Simulating Past ML Results)...');
   const predictions = [];
 
   for (const cust of customers) {
@@ -202,9 +194,7 @@ async function seedPredictions(customers: any[]) {
     else if (cust.duration < 60) score -= 0.05;
 
     if (cust.poutcome === 'success') score += 0.2;
-
-    if (['student', 'retired'].includes(cust.job)) score += 0.1;
-
+    if (['student', 'management'].includes(cust.job)) score += 0.1;
     if (cust.contact === 'cellular') score += 0.05;
 
     const normalizedScore = Math.min(0.99, Math.max(0.01, score));
@@ -222,7 +212,7 @@ async function seedPredictions(customers: any[]) {
       predictedClass,
       probabilityYes: py,
       probabilityNo: pn,
-      source: 'system_seed',
+      source: 'system_seed_simulation',
       timestamp: timestamp,
     });
   }
@@ -244,8 +234,8 @@ async function seedCampaigns(createdById: string) {
       criteria: { duration: { gte: 300 } },
     },
     {
-      name: 'Retired & Seniors Promo',
-      criteria: { job: 'retired', contact: 'cellular' },
+      name: 'Management & Professionals',
+      criteria: { job: 'management', contact: 'cellular' },
     },
     {
       name: 'General Housing Loan',
@@ -290,8 +280,8 @@ async function seedCampaigns(createdById: string) {
     let no = 0;
 
     targets.forEach((t: any) => {
-      if (t.predictions && t.predictions.length > 0) {
-        if (t.predictions[0].predictedClass === 'YES') yes++;
+      if (t.Prediction && t.Prediction.length > 0) {
+        if (t.Prediction[0].predictedClass === 'YES') yes++;
         else no++;
       }
     });

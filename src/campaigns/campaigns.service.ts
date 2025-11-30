@@ -1,11 +1,7 @@
-import {
-  Injectable,
-  NotFoundException,
-  Logger,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MlService } from '../ml/ml.service';
+import { MlMapper } from '../ml/ml.mapper';
 import {
   buildDateRange,
   ListParams,
@@ -79,6 +75,56 @@ export class CampaignsService {
     return c;
   }
 
+  async getCampaignTargets(campaignId: string, query: ListParams) {
+    const camp = await this.prisma.campaign.findUnique({
+      where: { id: campaignId },
+      select: { id: true, name: true },
+    });
+    if (!camp) throw new NotFoundException('Campaign not found');
+
+    const { page, take, skip } = paginate(query.page, query.limit);
+
+    const where: any = {
+      source: `campaign:${campaignId}`,
+    };
+
+    if (query.q) {
+      where.customer = {
+        name: { contains: query.q, mode: 'insensitive' },
+      };
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.prediction.findMany({
+        where,
+        skip,
+        take,
+        orderBy: [{ probabilityYes: 'desc' }],
+        include: {
+          customer: {
+            select: {
+              id: true,
+              extId: true,
+              name: true,
+              job: true,
+              age: true,
+              contact: true,
+              marital: true,
+              education: true,
+            },
+          },
+        },
+      }),
+      this.prisma.prediction.count({ where }),
+    ]);
+
+    return {
+      campaign: camp,
+      items,
+      meta: meta(total, page, take),
+    };
+  }
+
   async run(id: string) {
     const camp = await this.prisma.campaign.findUnique({ where: { id } });
     if (!camp) throw new NotFoundException('Campaign not found');
@@ -94,34 +140,9 @@ export class CampaignsService {
       no = 0;
 
     for (const c of targets) {
-      const payload = {
-        age: c.age,
-        job: c.job,
-        marital: c.marital,
-        education: c.education,
-
-        default: this.sanitizeBinary(c.creditDefault),
-        housing: this.sanitizeBinary(c.housing),
-        loan: this.sanitizeBinary(c.loan),
-
-        contact: c.contact,
-        month: c.month,
-        day_of_week: c.day_of_week,
-
-        duration: c.duration,
-
-        campaign: c.campaign,
-        pdays: c.pdays,
-        previous: c.previous,
-        poutcome: c.poutcome,
-        emp_var_rate: c.emp_var_rate,
-        cons_price_idx: c.cons_price_idx,
-        cons_conf_idx: c.cons_conf_idx,
-        euribor3m: c.euribor3m,
-        nr_employed: c.nr_employed,
-      };
-
       try {
+        const payload = MlMapper.toPredictionPayload(c);
+
         const res = await this.ml.predict(payload);
 
         if (!res || !res.success || !res.data) {
@@ -133,7 +154,7 @@ export class CampaignsService {
         const probYes = res.data.probability_yes;
 
         console.log(
-          `[PREDICT] ${c.name} | Dur: ${c.duration}s | Poutcome: ${c.poutcome} | Result: ${klass} (${(probYes * 100).toFixed(1)}%)`,
+          `[PREDICT] ${c.name} | Result: ${klass} (${(probYes * 100).toFixed(1)}%)`,
         );
 
         yes += klass === 'YES' ? 1 : 0;
@@ -226,11 +247,5 @@ export class CampaignsService {
         noCount: no,
       },
     });
-  }
-
-  private sanitizeBinary(val: string): string {
-    if (val === 'yes') return 'yes';
-    if (val === 'no') return 'no';
-    return 'no';
   }
 }
