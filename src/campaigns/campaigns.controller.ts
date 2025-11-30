@@ -7,7 +7,6 @@ import {
   Post,
   Query,
   Delete,
-  UseGuards,
   UsePipes,
 } from '@nestjs/common';
 import { CampaignsService } from './campaigns.service';
@@ -41,9 +40,16 @@ export class CampaignsController {
   }
 
   @Get()
-  @UsePipes(new ZodValidationPipe(ListQuerySchema))
-  list(@Query() query: ListQueryDto) {
+  list(@Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto) {
     return this.svc.list(query);
+  }
+
+  @Get(':id/targets')
+  getTargets(
+    @Param('id') id: string,
+    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
+  ) {
+    return this.svc.getCampaignTargets(id, query);
   }
 
   @Get(':id')
