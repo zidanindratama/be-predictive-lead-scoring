@@ -68,12 +68,12 @@ model Customer {
 model Prediction {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
   customerId     String   @db.ObjectId
-  customer       Customer @relation(fields: [customerId], references: [id])
   predictedClass String
   probabilityYes Float
   probabilityNo  Float
   timestamp      DateTime @default(now())
   source         String
+  customer       Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 }
 
 model Campaign {
