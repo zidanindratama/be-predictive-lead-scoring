@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MlService } from '../ml/ml.service';
+import { MlMapper } from '../ml/ml.mapper';
 import {
   ListParams,
   buildDateRange,
@@ -108,7 +109,6 @@ export class PredictionsService {
     const { probabilityYes, probabilityNo } = this.normalizeProbs(
       dto.probabilityYes,
       dto.probabilityNo,
-      dto.predictedClass ?? (existing.predictedClass as 'YES' | 'NO'),
     );
 
     const newClass =
@@ -151,35 +151,10 @@ export class PredictionsService {
 
     if (!cust) throw new NotFoundException('Customer not found');
 
-    const payload = {
-      age: cust.age,
-      job: cust.job,
-      marital: cust.marital,
-      education: cust.education,
+    const payload = MlMapper.toPredictionPayload(cust);
 
-      default: this.sanitizeBinary(cust.creditDefault),
-      housing: this.sanitizeBinary(cust.housing),
-      loan: this.sanitizeBinary(cust.loan),
-
-      contact: cust.contact,
-      month: cust.month,
-      day_of_week: cust.day_of_week,
-      duration: cust.duration,
-      campaign: cust.campaign,
-      pdays: cust.pdays,
-      previous: cust.previous,
-      poutcome: cust.poutcome,
-      emp_var_rate: cust.emp_var_rate,
-      cons_price_idx: cust.cons_price_idx,
-      cons_conf_idx: cust.cons_conf_idx,
-      euribor3m: cust.euribor3m,
-      nr_employed: cust.nr_employed,
-    };
-
-    // 3. Call ML API
     const res = await this.ml.predict(payload);
 
-    // 4. Check Response Validity
     if (!res || !res.success || !res.data) {
       console.error('ML Response Invalid:', res);
       throw new InternalServerErrorException(
@@ -187,7 +162,6 @@ export class PredictionsService {
       );
     }
 
-    // 5. Save Prediction
     const saved = await this.prisma.prediction.create({
       data: {
         customerId,
@@ -201,18 +175,9 @@ export class PredictionsService {
     return saved;
   }
 
-  // Helper: Sanitasi binary fields (yes/no/unknown)
-  private sanitizeBinary(val: string): string {
-    if (val === 'yes') return 'yes';
-    if (val === 'no') return 'no';
-    // Jika value 'unknown' atau string aneh lainnya, fallback ke 'no' (Safe approach)
-    return 'no';
-  }
-
   private normalizeProbs(
     py?: number,
     pn?: number,
-    _klass?: 'YES' | 'NO',
   ): { probabilityYes?: number; probabilityNo?: number } {
     const inRange = (v: number) => v >= 0 && v <= 1;
 
