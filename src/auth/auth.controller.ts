@@ -61,6 +61,11 @@ export class AuthController {
   @UsePipes(new ZodValidationPipe(LoginSchema))
   async login(@Body() dto: any, @Res({ passthrough: true }) res: Response) {
     const user = await this.auth.validateUser(dto.email, dto.password);
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
     const tokens = this.auth.signTokens({
       id: user.id,
       email: user.email,
