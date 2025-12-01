@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as Papa from 'papaparse';
@@ -19,10 +20,17 @@ import {
   paginate,
   meta,
 } from '../common/utils/list.util';
+import { MlService } from '../ml/ml.service';
+import { MlMapper } from '../ml/ml.mapper';
 
 @Injectable()
 export class CustomersService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(CustomersService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private ml: MlService,
+  ) {}
 
   private mapToPrisma(data: any) {
     const { default: creditDefault, ...rest } = data;
@@ -38,7 +46,7 @@ export class CustomersService {
     try {
       let rows: any[] = [];
 
-      if (file.mimetype.includes('csv')) {
+      if (file.mimetype.includes('csv') || file.originalname.endsWith('.csv')) {
         const csv = file.buffer.toString('utf8');
         const parsed = Papa.parse(csv, { header: true, dynamicTyping: true });
 
@@ -58,15 +66,59 @@ export class CustomersService {
         throw new BadRequestException('No valid records found in the file');
       }
 
-      const prismaRows = rows.map((row) => this.mapToPrisma(row));
+      this.logger.log(`Processing import for ${rows.length} customers...`);
 
-      await this.prisma.customer.createMany({ data: prismaRows });
+      let successCount = 0;
+      let predictionCount = 0;
 
-      return { imported: rows.length };
+      const results = await Promise.allSettled(
+        rows.map(async (row) => {
+          const prismaData = this.mapToPrisma(row);
+
+          const customer = await this.prisma.customer.create({
+            data: prismaData,
+          });
+
+          successCount++;
+
+          try {
+            const payload = MlMapper.toPredictionPayload(customer);
+            const mlRes = await this.ml.predict(payload);
+
+            if (mlRes && mlRes.success && mlRes.data) {
+              await this.prisma.prediction.create({
+                data: {
+                  customerId: customer.id,
+                  predictedClass: mlRes.data.predicted_class,
+                  probabilityYes: mlRes.data.probability_yes,
+                  probabilityNo: mlRes.data.probability_no,
+                  source: 'import_auto_predict',
+                },
+              });
+              predictionCount++;
+            }
+          } catch (mlError) {
+            this.logger.warn(
+              `Auto-prediction failed for customer ${customer.name}: ${mlError.message}`,
+            );
+          }
+
+          return customer;
+        }),
+      );
+
+      const failed = results.filter((r) => r.status === 'rejected').length;
+
+      return {
+        total_rows: rows.length,
+        imported: successCount,
+        predictions_generated: predictionCount,
+        failed_rows: failed,
+      };
     } catch (error) {
       if (error instanceof BadRequestException) throw error;
 
-      console.error('Import Error:', error);
+      this.logger.error('Import Error:', error);
       throw new InternalServerErrorException(
         'Failed to import customers data: ' + error.message,
       );
@@ -150,9 +202,26 @@ export class CustomersService {
 
   async create(data: CreateCustomerDto) {
     try {
-      // @ts-ignore - ignore type mismatch for creditDefault vs default mapping
       const prismaData = this.mapToPrisma(data);
-      return await this.prisma.customer.create({ data: prismaData });
+      const customer = await this.prisma.customer.create({ data: prismaData });
+
+      try {
+        const payload = MlMapper.toPredictionPayload(customer);
+        const mlRes = await this.ml.predict(payload);
+        if (mlRes?.success) {
+          await this.prisma.prediction.create({
+            data: {
+              customerId: customer.id,
+              predictedClass: mlRes.data.predicted_class,
+              probabilityYes: mlRes.data.probability_yes,
+              probabilityNo: mlRes.data.probability_no,
+              source: 'create_auto_predict',
+            },
+          });
+        }
+      } catch (e) {}
+
+      return customer;
     } catch (error) {
       console.error('Create Error:', error);
       throw new BadRequestException(
@@ -165,6 +234,7 @@ export class CustomersService {
     try {
       const customer = await this.prisma.customer.findUnique({
         where: { id },
+        include: { Prediction: { orderBy: { timestamp: 'desc' } } },
       });
 
       if (!customer) {
@@ -217,11 +287,7 @@ export class CustomersService {
         where[key] = { contains: query[key], mode: 'insensitive' };
     }
 
-    const searchWhere = makeSearchWhere(query.q, [
-      'name',
-      'extId',
-      ...textFields,
-    ]);
+    const searchWhere = makeSearchWhere(query.q, ['name', 'extId']);
     if (searchWhere) {
       Object.assign(where, searchWhere);
     }
