@@ -94,6 +94,10 @@ export class CampaignsService {
       };
     }
 
+    if (query.predictedClass) {
+      where.predictedClass = query.predictedClass;
+    }
+
     const [items, total] = await Promise.all([
       this.prisma.prediction.findMany({
         where,

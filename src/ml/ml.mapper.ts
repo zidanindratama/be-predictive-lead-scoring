@@ -6,7 +6,7 @@ export class MlMapper {
     return {
       personal_info: {
         age: customer.age,
-        age_category: this.getAgeCategory(customer.age),
+        // age_category: this.getAgeCategory(customer.age),
         job: this.sanitizeJob(customer.job),
         marital: this.sanitizeMarital(customer.marital),
         education: this.mapEducation(customer.education),

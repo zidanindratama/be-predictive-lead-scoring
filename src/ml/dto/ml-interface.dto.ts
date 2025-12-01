@@ -13,7 +13,7 @@ export interface MlHealthResponse {
 export interface MlPredictionPayload {
   personal_info: {
     age: number;
-    age_category: string;
+    // age_category: string;
     job: string;
     marital: string;
     education: {

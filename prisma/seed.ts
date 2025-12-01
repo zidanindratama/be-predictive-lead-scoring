@@ -30,7 +30,7 @@ const EDUCATION = [
   'university.degree',
 ] as const;
 
-const BINARY_OPTIONS = ['yes', 'no', 'unknown'] as const;
+const BINARY_OPTIONS = ['yes', 'no'] as const;
 const CONTACT = ['cellular', 'telephone'] as const;
 
 const MONTHS = [
@@ -54,15 +54,6 @@ function rand<T>(arr: readonly T[]) {
 
 const f = (min: number, max: number, fd = 1) =>
   Number(faker.number.float({ min, max, fractionDigits: fd }).toFixed(fd));
-
-function prob(yesChance = 0.3) {
-  const target = Math.min(0.99, Math.max(0.01, yesChance));
-  const variation = faker.number.float({ min: -0.1, max: 0.1 });
-  let py = target + variation;
-  py = Math.min(0.99, Math.max(0.01, py));
-  const pn = 1 - py;
-  return { py: Number(py.toFixed(4)), pn: Number(pn.toFixed(4)) };
-}
 
 async function seedUsers() {
   console.log('👤 Seeding Users...');
@@ -173,130 +164,7 @@ async function seedCustomers(count = 200) {
 
   await prisma.customer.createMany({ data: customers });
 
-  const results = await prisma.customer.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: count,
-  });
-
-  console.log(`   ✅ ${results.length} customers created.`);
-  return results;
-}
-
-async function seedPredictions(customers: any[]) {
-  console.log('🔮 Seeding Predictions (Simulating Past ML Results)...');
-  const predictions = [];
-
-  for (const cust of customers) {
-    let score = 0.1;
-
-    if (cust.duration > 600) score += 0.6;
-    else if (cust.duration > 300) score += 0.3;
-    else if (cust.duration < 60) score -= 0.05;
-
-    if (cust.poutcome === 'success') score += 0.2;
-    if (['student', 'management'].includes(cust.job)) score += 0.1;
-    if (cust.contact === 'cellular') score += 0.05;
-
-    const normalizedScore = Math.min(0.99, Math.max(0.01, score));
-
-    const { py, pn } = prob(normalizedScore);
-    const predictedClass = py >= 0.5 ? 'YES' : 'NO';
-
-    const timestamp = new Date(cust.createdAt);
-    timestamp.setMinutes(
-      timestamp.getMinutes() + faker.number.int({ min: 5, max: 60 }),
-    );
-
-    predictions.push({
-      customerId: cust.id,
-      predictedClass,
-      probabilityYes: py,
-      probabilityNo: pn,
-      source: 'system_seed_simulation',
-      timestamp: timestamp,
-    });
-  }
-
-  await prisma.prediction.createMany({ data: predictions });
-  console.log(`   ✅ ${predictions.length} predictions created.`);
-}
-
-async function seedCampaigns(createdById: string) {
-  console.log('📢 Seeding Campaigns...');
-
-  const campaigns = [
-    {
-      name: 'Q3 Student Outreach',
-      criteria: { job: 'student' },
-    },
-    {
-      name: 'High Duration Follow-up',
-      criteria: { duration: { gte: 300 } },
-    },
-    {
-      name: 'Management & Professionals',
-      criteria: { job: 'management', contact: 'cellular' },
-    },
-    {
-      name: 'General Housing Loan',
-      criteria: { housing: 'yes', loan: 'no' },
-    },
-  ];
-
-  for (const c of campaigns) {
-    const createdCamp = await prisma.campaign.create({
-      data: {
-        name: c.name,
-        criteria: c.criteria,
-        totalTargets: 0,
-        yesCount: 0,
-        noCount: 0,
-        createdById,
-      },
-    });
-
-    const criteria: any = c.criteria;
-    const whereClause: any = {};
-
-    for (const [key, val] of Object.entries(criteria)) {
-      if (typeof val === 'object' && val !== null) {
-        whereClause[key] = val;
-      } else {
-        whereClause[key] = val;
-      }
-    }
-
-    const targets = await prisma.customer.findMany({
-      where: whereClause,
-      include: {
-        Prediction: {
-          orderBy: { timestamp: 'desc' },
-          take: 1,
-        },
-      },
-    });
-
-    let yes = 0;
-    let no = 0;
-
-    targets.forEach((t: any) => {
-      if (t.Prediction && t.Prediction.length > 0) {
-        if (t.Prediction[0].predictedClass === 'YES') yes++;
-        else no++;
-      }
-    });
-
-    await prisma.campaign.update({
-      where: { id: createdCamp.id },
-      data: {
-        totalTargets: targets.length,
-        yesCount: yes,
-        noCount: no,
-      },
-    });
-  }
-
-  console.log(`   ✅ ${campaigns.length} campaigns created & calculated.`);
+  console.log(`   ✅ ${customers.length} customers created.`);
 }
 
 async function main() {
@@ -313,15 +181,7 @@ async function main() {
   }
 
   await seedUsers();
-  const adminUser = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
-
-  const customers = await seedCustomers(300);
-
-  await seedPredictions(customers);
-
-  if (adminUser) {
-    await seedCampaigns(adminUser.id);
-  }
+  await seedCustomers(300);
 
   console.log('✨ Seeding Completed Successfully!');
 }
