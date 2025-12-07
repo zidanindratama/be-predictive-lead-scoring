@@ -13,7 +13,6 @@ export interface MlHealthResponse {
 export interface MlPredictionPayload {
   personal_info: {
     age: number;
-    // age_category: string;
     job: string;
     marital: string;
     education: {
@@ -36,7 +35,13 @@ export interface MlPredictionPayload {
     campaign: number;
     previous: number;
     poutcome: string;
-    cons_conf_idx: number;
+  };
+  macro_info: {
+    employment_variation_rate: number;
+    euribor_3m_rate: number;
+    number_employed: number;
+    consumer_price_index: number;
+    consumer_confidence_index: number;
   };
 }
 
@@ -50,6 +55,7 @@ export interface MlPredictionResponse {
     probability_no: number;
     probability_yes_percentage: string;
     probability_no_percentage: string;
+    priority: 'HIGH' | 'MEDIUM' | 'LOW' | 'VERY LOW';
   };
   meta: any;
 }
