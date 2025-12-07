@@ -5,47 +5,32 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-const JOBS = [
+const HIGH_POTENTIAL_JOBS = [
   'admin',
-  'blue-collar',
-  'entrepreneur',
-  'housemaid',
   'management',
-  'self-employed',
-  'services',
+  'retired',
   'student',
   'technician',
+] as const;
+const LOW_POTENTIAL_JOBS = [
+  'blue-collar',
+  'housemaid',
+  'services',
   'unemployed',
+  'entrepreneur',
+  'self-employed',
 ] as const;
 
-const MARITAL = ['married', 'single'] as const;
-
-const EDUCATION = [
+const HIGH_EDU = ['university.degree', 'professional.course'] as const;
+const LOW_EDU = [
   'basic.4y',
   'basic.6y',
   'basic.9y',
   'high.school',
   'illiterate',
-  'professional.course',
-  'university.degree',
 ] as const;
 
 const BINARY_OPTIONS = ['yes', 'no'] as const;
-const CONTACT = ['cellular', 'telephone'] as const;
-
-const MONTHS = [
-  'mar',
-  'apr',
-  'may',
-  'jun',
-  'jul',
-  'aug',
-  'sep',
-  'oct',
-  'nov',
-  'dec',
-] as const;
-
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri'] as const;
 
 function rand<T>(arr: readonly T[]) {
@@ -93,15 +78,17 @@ async function seedUsers() {
   console.log(`   ✅ ${users.length} users processed.`);
 }
 
-async function seedCustomers(count = 200) {
-  console.log(`👥 Seeding ${count} Customers...`);
+async function seedCustomers(count = 5000) {
+  console.log(
+    `👥 Seeding ${count} Customers with ~80% YES probability logic...`,
+  );
   const customers = [];
 
   const startDate = new Date();
-  startDate.setMonth(startDate.getMonth() - 4);
+  startDate.setMonth(startDate.getMonth() - 6);
 
   for (let i = 0; i < count; i++) {
-    const isHighPotential = Math.random() < 0.3;
+    const isHighPotential = Math.random() < 0.8;
 
     const createdAt = faker.date.between({
       from: startDate,
@@ -111,12 +98,7 @@ async function seedCustomers(count = 200) {
     let row: any = {
       extId: faker.string.alphanumeric({ length: 8 }).toUpperCase(),
       name: faker.person.fullName(),
-      age: faker.number.int({ min: 20, max: 80 }),
-      creditDefault: 'no',
-      housing: rand(BINARY_OPTIONS),
-      loan: rand(BINARY_OPTIONS),
-      day_of_week: rand(DAYS),
-      campaign: faker.number.int({ min: 1, max: 10 }),
+      createdById: null,
       createdAt,
       updatedAt: createdAt,
     };
@@ -124,37 +106,62 @@ async function seedCustomers(count = 200) {
     if (isHighPotential) {
       row = {
         ...row,
-        job: rand(['student', 'admin', 'management', 'technician']),
-        marital: rand(['single', 'married']),
-        education: rand(['university.degree', 'professional.course']),
+        age: faker.number.int({ min: 30, max: 55 }),
+        job: rand(HIGH_POTENTIAL_JOBS),
+        marital: rand(['married', 'single']),
+        education: rand(HIGH_EDU),
+        creditDefault: 'no',
+        housing: rand(BINARY_OPTIONS),
+        loan: 'no',
+
         contact: 'cellular',
-        month: rand(['mar', 'sep', 'oct', 'dec']),
-        duration: faker.number.int({ min: 300, max: 1200 }),
-        pdays: faker.number.int({ min: 0, max: 10 }),
-        previous: faker.number.int({ min: 1, max: 6 }),
+        month: rand(['mar', 'may', 'jun', 'oct', 'sep']),
+        day_of_week: rand(['tue', 'wed', 'thu']),
+
+        duration: faker.number.int({ min: 250, max: 1500 }),
+
+        campaign: faker.number.int({ min: 1, max: 3 }),
+
+        pdays: faker.number.int({ min: 3, max: 14 }),
+        previous: faker.number.int({ min: 1, max: 4 }),
         poutcome: 'success',
-        emp_var_rate: f(-3.4, -1.8),
-        cons_price_idx: f(92.0, 93.5),
-        cons_conf_idx: f(-50.0, -35.0),
-        euribor3m: f(0.6, 1.5),
-        nr_employed: f(4900, 5050),
+
+        emp_var_rate: f(-3.0, -1.0),
+        cons_price_idx: f(92.5, 94.0),
+        cons_conf_idx: f(-40.0, -25.0),
+        euribor3m: f(0.5, 1.5),
+        nr_employed: f(4950, 5050),
       };
     } else {
       row = {
         ...row,
-        job: rand(JOBS),
-        marital: rand(MARITAL),
-        education: rand(EDUCATION),
-        contact: rand(CONTACT),
-        month: rand(MONTHS),
-        duration: faker.number.int({ min: 0, max: 250 }),
+        age:
+          Math.random() < 0.5
+            ? faker.number.int({ min: 18, max: 24 })
+            : faker.number.int({ min: 60, max: 85 }),
+        job: rand(LOW_POTENTIAL_JOBS),
+        marital: rand(['married', 'divorced', 'single']),
+        education: rand(LOW_EDU),
+        creditDefault: Math.random() < 0.1 ? 'yes' : 'no',
+        housing: rand(BINARY_OPTIONS),
+        loan: 'yes',
+
+        contact: 'telephone',
+        month: rand(['nov', 'jan', 'jul', 'aug']),
+        day_of_week: rand(['mon', 'fri']),
+
+        duration: faker.number.int({ min: 0, max: 180 }),
+
+        campaign: faker.number.int({ min: 4, max: 15 }),
+
         pdays: 999,
         previous: 0,
         poutcome: 'nonexistent',
-        emp_var_rate: f(1.1, 1.4),
-        cons_price_idx: f(93.0, 94.5),
-        cons_conf_idx: f(-42.0, -36.0),
-        euribor3m: f(4.0, 5.0),
+
+        emp_var_rate: f(1.0, 1.4),
+        cons_price_idx: f(93.5, 94.8),
+        cons_conf_idx: f(-50.0, -40.0),
+        euribor3m: f(3.5, 5.0),
         nr_employed: f(5100, 5228),
       };
     }
@@ -181,7 +188,7 @@ async function main() {
   }
 
   await seedUsers();
-  await seedCustomers(300);
+  await seedCustomers(5000);
 
   console.log('✨ Seeding Completed Successfully!');
 }
