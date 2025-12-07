@@ -19,6 +19,7 @@ export class MlService {
     return axios.create({
       baseURL: this.modelUrl,
       headers: {
+        'Content-Type': 'application/json',
         Authorization: `Bearer ${process.env.ML_API_KEY}`,
       },
     });
@@ -40,12 +41,6 @@ export class MlService {
       const { data } = await this.axiosInstance.post<MlPredictionResponse>(
         `/api/predict`,
         input,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${process.env.ML_API_KEY}`,
-          },
-        },
       );
 
       return data;
