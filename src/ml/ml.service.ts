@@ -6,6 +6,7 @@ import {
 import axios from 'axios';
 import {
   MlHealthResponse,
+  MlModelInfoResponse,
   MlPredictionPayload,
   MlPredictionResponse,
 } from './dto/ml-interface.dto';
@@ -53,6 +54,20 @@ export class MlService {
       this.logger.error('Prediction Request Failed', error.message);
       throw new InternalServerErrorException(
         'Failed to get prediction from ML Engine',
+      );
+    }
+  }
+
+  async getModelInfo(): Promise<MlModelInfoResponse> {
+    try {
+      const { data } = await axios.get<MlModelInfoResponse>(
+        `${this.base}/api/model-info`,
+      );
+      return data;
+    } catch (error) {
+      this.logger.error('Failed to fetch Model Info', error.message);
+      throw new InternalServerErrorException(
+        'Failed to fetch Model Information from ML Service',
       );
     }
   }

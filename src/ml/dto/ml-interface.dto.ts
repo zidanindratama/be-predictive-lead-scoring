@@ -53,3 +53,27 @@ export interface MlPredictionResponse {
   };
   meta: any;
 }
+
+export interface MlModelInfoResponse {
+  generated_at: string;
+  model_name: string;
+  performance: {
+    accuracy: number;
+    precision: number;
+    recall: number;
+    f1_score: number;
+    auc: number;
+  };
+  performance_percentage: {
+    accuracy: string;
+    precision: string;
+    recall: string;
+    f1_score: string;
+    auc: string;
+  };
+  business_impact: {
+    model_auc_score: string | number;
+    predicted_positive_rate: string | number;
+    actual_positive_rate: string | number;
+  };
+}
