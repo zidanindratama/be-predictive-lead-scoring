@@ -3,7 +3,7 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import {
   MlHealthResponse,
   MlModelInfoResponse,
@@ -14,13 +14,20 @@ import {
 @Injectable()
 export class MlService {
   private readonly logger = new Logger(MlService.name);
-  private base = process.env.ML_BASE_URL;
-
+  private modelUrl = process.env.ML_BASE_URL;
+  private get axiosInstance(): AxiosInstance {
+    return axios.create({
+      baseURL: this.modelUrl,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.ML_API_KEY}`,
+      },
+    });
+  }
   async health(): Promise<Partial<MlHealthResponse>> {
     try {
-      const { data } = await axios.get<MlHealthResponse>(
-        `${this.base}/api/health`,
-      );
+      const { data } =
+        await this.axiosInstance.get<MlHealthResponse>(`/api/health`);
       return data;
     } catch (error) {
       this.logger.error('ML Service Health Check Failed', error.message);
@@ -31,12 +38,9 @@ export class MlService {
   async predict(input: MlPredictionPayload): Promise<MlPredictionResponse> {
     console.log(input);
     try {
-      const { data } = await axios.post<MlPredictionResponse>(
-        `${this.base}/api/predict`,
+      const { data } = await this.axiosInstance.post<MlPredictionResponse>(
+        `/api/predict`,
         input,
-        {
-          headers: { 'Content-Type': 'application/json' },
-        },
       );
 
       return data;
@@ -60,8 +64,8 @@ export class MlService {
 
   async getModelInfo(): Promise<MlModelInfoResponse> {
     try {
-      const { data } = await axios.get<MlModelInfoResponse>(
-        `${this.base}/api/model-info`,
+      const { data } = await this.axiosInstance.get<MlModelInfoResponse>(
+        `/api/model-info`,
       );
       return data;
     } catch (error) {

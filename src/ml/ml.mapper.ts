@@ -1,12 +1,10 @@
 import { Customer } from '@prisma/client';
 import { MlPredictionPayload } from './dto/ml-interface.dto';
-
 export class MlMapper {
   static toPredictionPayload(customer: Customer): MlPredictionPayload {
     return {
       personal_info: {
         age: customer.age,
-        // age_category: this.getAgeCategory(customer.age),
         job: this.sanitizeJob(customer.job),
         marital: this.sanitizeMarital(customer.marital),
         education: this.mapEducation(customer.education),
@@ -25,23 +23,18 @@ export class MlMapper {
         campaign: customer.campaign,
         previous: customer.previous,
         poutcome: customer.poutcome,
-        cons_conf_idx: customer.cons_conf_idx,
+      },
+      macro_info: {
+        employment_variation_rate: customer.emp_var_rate,
+        euribor_3m_rate: customer.euribor3m,
+        number_employed: customer.nr_employed,
+        consumer_price_index: customer.cons_price_idx,
+        consumer_confidence_index: customer.cons_conf_idx,
       },
     };
   }
 
-  private static getAgeCategory(age: number): string {
-    if (age < 30) return 'struggling';
-    if (age <= 50) return 'stable';
-    if (age <= 65) return 'about to retire';
-
-    return 'old age';
-  }
-
   private static sanitizeJob(job: string): string {
-    let cleanJob = job.replace('.', '').toLowerCase();
-    cleanJob = cleanJob.replace('-', '_');
-
     const validJobs = [
       'blue_collar',
       'housemaid',
@@ -55,11 +48,11 @@ export class MlMapper {
       'student',
     ];
 
-    if (validJobs.includes(cleanJob)) {
-      return cleanJob;
+    if (validJobs.includes(job)) {
+      return job;
     }
 
-    if (cleanJob === 'retired') {
+    if (job === 'retired') {
       return 'unemployed';
     }
 
@@ -91,7 +84,7 @@ export class MlMapper {
         return { type: 'school', level: 'high', grade: 12 };
 
       case 'professional.course':
-        return { type: 'university' };
+        return { type: 'course' };
       case 'university.degree':
         return { type: 'university' };
 
