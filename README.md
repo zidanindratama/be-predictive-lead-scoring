@@ -1,7 +1,16 @@
-# 🧠 Predictive Lead Scoring API
+# ![SmartBank API](https://raw.githubusercontent.com/zidanindratama/fe-predictive-lead-scoring/refs/heads/main/app/og-image.png)
 
-> Backend API untuk sistem **Predictive Lead Scoring** berbasis **NestJS + Prisma (MongoDB)**
-> Menyediakan modul **Auth, Users, Customers, Predictions, Campaigns, Analytics**, serta integrasi **Cloudinary & ML Service**.
+# 🧠 SmartBank - Predictive Lead Scoring API
+
+**SmartBank Backend API** is a NestJS + Prisma (MongoDB) backend for the **Predictive Lead Scoring System**.  
+It provides modules for **Auth, Users, Customers, Predictions, Campaigns, Analytics**, and integrates with **Cloudinary, ML Service, and SMTP Mail**.
+
+---
+
+## 🌐 API Base URL
+
+- **Production / Demo:** `https://be-predictive-lead-scoring.vercel.app`
+- **Development:** `http://localhost:5000`
 
 ---
 
@@ -16,6 +25,7 @@
 | Storage        | Cloudinary (Image Upload)              |
 | ML Integration | Axios → HuggingFace Space API          |
 | Import/Export  | Papaparse (CSV), XLSX                  |
+| Mail           | Nodemailer (SMTP Gmail)                |
 | Security       | Helmet, Cookie-Parser                  |
 | Utility        | DayJS, Bcrypt                          |
 
@@ -24,23 +34,56 @@
 ## 🚀 Quick Start
 
 ```bash
-# 1. Install dependencies
+# Install dependencies
 npm install
 
-# 2. Generate Prisma Client
+# Generate Prisma Client
 npx prisma generate
 
-# 3. Jalankan server (dev mode)
+# Run server (dev mode)
 npm run start:dev
 
-# 4. (Opsional) Seed database
+# (Optional) Seed database
 npm run seed
 
-# 5. Production
+# Production mode
 npm run build && npm run start:prod
 ```
 
-Server berjalan di: **[http://localhost:5000](http://localhost:5000)**
+Server runs at: [http://localhost:5000](http://localhost:5000)
+
+---
+
+## 🔧 Environment Variables
+
+Create `.env` in the root folder:
+
+```env
+DATABASE_URL="mongodb+srv://<user>:<pass>@cluster.mongodb.net/dbname"
+NODE_ENV=development
+PORT=5000
+
+JWT_ACCESS_SECRET=changeme
+JWT_REFRESH_SECRET=changeme
+JWT_ACCESS_TTL=15m
+JWT_REFRESH_TTL=7d
+
+ML_BASE_URL=https://A25-CS078-Banking-Sales-Predictor.hf.space
+ML_API_KEY=your-ml-api-key
+
+CLOUDINARY_CLOUD_NAME="cloudname"
+CLOUDINARY_API_KEY="apikey"
+CLOUDINARY_API_SECRET="apisecret"
+
+COOKIE_DOMAIN=localhost
+COOKIE_SECURE=false
+
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=465
+MAIL_USER=your-email@gmail.com
+MAIL_PASS=your-app-password
+MAIL_FROM=your-email@gmail.com
+```
 
 ---
 
@@ -55,187 +98,139 @@ src/
  ├── campaigns/     # Campaign management + ML batch run
  ├── analytics/     # Overview, trend, by-job
  ├── uploads/       # Cloudinary upload
- ├── common/        # guards, pipes, interceptors, utils
- ├── config/        # environment configs
+ ├── common/        # Guards, Pipes, Interceptors, Utils
+ ├── config/        # Environment & app config
  └── prisma/        # PrismaService (Global)
 ```
 
 ---
 
-## 🔧 Environment Setup
-
-Buat file `.env`:
-
-```env
-DATABASE_URL="mongodb+srv://<user>:<pass>@cluster.mongodb.net/dbname"
-NODE_ENV=development
-PORT=5000
-
-JWT_ACCESS_SECRET=changeme
-JWT_REFRESH_SECRET=changeme
-JWT_ACCESS_TTL=15m
-JWT_REFRESH_TTL=7d
-
-ML_BASE_URL=https://your-ml-service.hf.space
-
-CLOUDINARY_CLOUD_NAME="cloudname"
-CLOUDINARY_API_KEY="apikey"
-CLOUDINARY_API_SECRET="apisecret"
-
-COOKIE_DOMAIN=localhost
-COOKIE_SECURE=false
-```
-
----
-
-## 🧩 Global Response Format
-
-| Status     | Format                                            |
-| ---------- | ------------------------------------------------- |
-| ✅ Success | `{ "success": true, "data": ... }`                |
-| ❌ Error   | `{ "success": false, "error": { message, ... } }` |
-
----
-
 ## 🔐 Authentication Module
 
-### Endpoint Table
+| Method | Path             | Roles         | Description                  |
+| ------ | ---------------- | ------------- | ---------------------------- |
+| POST   | `/auth/register` | Public        | Register new user            |
+| POST   | `/auth/login`    | Public        | Login user & set `rt` cookie |
+| POST   | `/auth/refresh`  | Refresh Token | Refresh access token         |
+| DELETE | `/auth/logout`   | Auth          | Remove refresh cookie        |
+| GET    | `/auth/me`       | Auth          | Get logged-in user info      |
+| PATCH  | `/auth/me`       | Auth          | Update profile               |
 
-| Method | Path             | Roles         | Deskripsi                 |
-| ------ | ---------------- | ------------- | ------------------------- |
-| POST   | `/auth/register` | Public        | Register user baru        |
-| POST   | `/auth/login`    | Public        | Login dan set cookie `rt` |
-| POST   | `/auth/refresh`  | Refresh Token | Refresh access token      |
-| DELETE | `/auth/logout`   | Auth          | Hapus cookie refresh      |
-| GET    | `/auth/me`       | Auth          | Dapatkan info user login  |
-| PATCH  | `/auth/me`       | Auth          | Update profil user        |
+**Notes:**
 
-### Catatan
-
-- **Access Token** dikirim via `Authorization: Bearer <token>`
-- **Refresh Token** disimpan di cookie `rt`
-- Role default user baru = `USER`
+- **Access Token** is sent via `Authorization: Bearer <token>`
+- **Refresh Token** is stored in `rt` cookie
+- Default role for new user = `USER`
 
 ---
 
 ## 👥 Users Module
 
-| Method | Path         | Roles | Deskripsi                                    |
-| ------ | ------------ | ----- | -------------------------------------------- |
-| GET    | `/users`     | ADMIN | List semua user (dengan filter & pagination) |
-| GET    | `/users/:id` | ADMIN | Detail user                                  |
-| PATCH  | `/users/:id` | ADMIN | Update nama, role, atau avatar               |
-| DELETE | `/users/:id` | ADMIN | Hapus user                                   |
+| Method | Path         | Roles | Description                               |
+| ------ | ------------ | ----- | ----------------------------------------- |
+| GET    | `/users`     | ADMIN | List all users (with filter & pagination) |
+| GET    | `/users/:id` | ADMIN | Get user details                          |
+| PATCH  | `/users/:id` | ADMIN | Update name, role, avatar                 |
+| DELETE | `/users/:id` | ADMIN | Delete user                               |
 
-**Query params:**
-`page`, `limit`, `q`, `role`, `sortBy`, `sortDir`, `from`, `to`
+**Query params:** `page`, `limit`, `q`, `role`, `sortBy`, `sortDir`, `from`, `to`
 
 ---
 
 ## 👤 Customers Module
 
-| Method | Path                     | Roles        | Deskripsi                                      |
-| ------ | ------------------------ | ------------ | ---------------------------------------------- |
-| GET    | `/customers`             | ALL          | List customer (filter, search, sort, paginate) |
-| GET    | `/customers/:id`         | ALL          | Detail customer                                |
-| POST   | `/customers`             | ADMIN, STAFF | Tambah customer baru                           |
-| PATCH  | `/customers/:id`         | ADMIN, STAFF | Update data customer                           |
-| DELETE | `/customers/:id`         | ADMIN        | Hapus customer                                 |
-| POST   | `/customers/import`      | ADMIN, STAFF | Import CSV / XLSX                              |
-| GET    | `/customers/export.csv`  | ADMIN, STAFF | Export ke CSV                                  |
-| GET    | `/customers/export.xlsx` | ADMIN, STAFF | Export ke XLSX                                 |
+| Method | Path                     | Roles        | Description                                  |
+| ------ | ------------------------ | ------------ | -------------------------------------------- |
+| GET    | `/customers`             | ALL          | List customers (filter/search/sort/paginate) |
+| GET    | `/customers/:id`         | ALL          | Customer details                             |
+| POST   | `/customers`             | ADMIN, STAFF | Add new customer                             |
+| PATCH  | `/customers/:id`         | ADMIN, STAFF | Update customer data                         |
+| DELETE | `/customers/:id`         | ADMIN        | Delete customer                              |
+| POST   | `/customers/import`      | ADMIN, STAFF | Import CSV / XLSX                            |
+| GET    | `/customers/export.csv`  | ADMIN, STAFF | Export to CSV                                |
+| GET    | `/customers/export.xlsx` | ADMIN, STAFF | Export to XLSX                               |
 
-**Filter support:**
-`job`, `marital`, `education`, `contact`, `ageMin`, `ageMax`, `q`, `from`, `to`
+**Filter support:** `job`, `marital`, `education`, `contact`, `ageMin`, `ageMax`, `q`, `from`, `to`
 
 ---
 
 ## 🔮 Predictions Module
 
-| Method | Path                  | Roles | Deskripsi                       |
-| ------ | --------------------- | ----- | ------------------------------- |
-| GET    | `/predictions`        | ALL   | List prediction (dengan filter) |
-| GET    | `/predictions/:id`    | ALL   | Detail prediction               |
-| PATCH  | `/predictions/:id`    | ALL   | Update probability/class        |
-| DELETE | `/predictions/:id`    | ALL   | Hapus prediction                |
-| POST   | `/predictions/single` | ALL   | Prediksi 1 customer via ML API  |
+| Method | Path                  | Roles | Description                    |
+| ------ | --------------------- | ----- | ------------------------------ |
+| GET    | `/predictions`        | ALL   | List predictions (with filter) |
+| GET    | `/predictions/:id`    | ALL   | Prediction details             |
+| PATCH  | `/predictions/:id`    | ALL   | Update probability/class       |
+| DELETE | `/predictions/:id`    | ALL   | Delete prediction              |
+| POST   | `/predictions/single` | ALL   | Predict 1 customer via ML API  |
 
-**Filter Query:**
-`predictedClass`, `source`, `customerId`, `probYesMin/Max`, `probNoMin/Max`, `from`, `to`
+**Filter Query:** `predictedClass`, `source`, `customerId`, `probYesMin/Max`, `probNoMin/Max`, `from`, `to`
 
 ---
 
 ## 🎯 Campaigns Module
 
-| Method | Path                 | Roles        | Deskripsi                                 |
-| ------ | -------------------- | ------------ | ----------------------------------------- |
-| POST   | `/campaigns`         | ADMIN, STAFF | Buat campaign baru                        |
-| POST   | `/campaigns/:id/run` | ADMIN, STAFF | Jalankan campaign & simpan hasil prediksi |
-| GET    | `/campaigns`         | ALL          | List campaign (search/sort/paginate)      |
-| GET    | `/campaigns/:id`     | ALL          | Detail campaign                           |
-| PATCH  | `/campaigns/:id`     | ADMIN, STAFF | Update nama/criteria campaign             |
-| DELETE | `/campaigns/:id`     | ADMIN        | Hapus campaign + predictions terkait      |
+| Method | Path                 | Roles        | Description                           |
+| ------ | -------------------- | ------------ | ------------------------------------- |
+| POST   | `/campaigns`         | ADMIN, STAFF | Create new campaign                   |
+| POST   | `/campaigns/:id/run` | ADMIN, STAFF | Run campaign & save predictions       |
+| GET    | `/campaigns`         | ALL          | List campaigns (search/sort/paginate) |
+| GET    | `/campaigns/:id`     | ALL          | Campaign details                      |
+| PATCH  | `/campaigns/:id`     | ADMIN, STAFF | Update name/criteria                  |
+| DELETE | `/campaigns/:id`     | ADMIN        | Delete campaign & related predictions |
 
-### Payload
-
-| Field       | Type    | Deskripsi                                      |
-| ----------- | ------- | ---------------------------------------------- |
-| `name`      | string  | Nama campaign                                  |
-| `criteria`  | JSON    | Prisma where filter untuk Customer             |
-| `recompute` | boolean | (PATCH) Rehitung ulang counter, default `true` |
-
-**Contoh criteria:**
+**Payload Example:**
 
 ```json
-{ "job": "technician", "month": "oct", "age": { "gte": 25, "lte": 40 } }
+{
+  "name": "October Campaign",
+  "criteria": {
+    "job": "technician",
+    "month": "oct",
+    "age": { "gte": 25, "lte": 40 }
+  },
+  "recompute": true
+}
 ```
 
 ---
 
 ## 📊 Analytics Module
 
-| Method | Path                          | Roles | Deskripsi                                                 |     |                      |
-| ------ | ----------------------------- | ----- | --------------------------------------------------------- | --- | -------------------- |
-| GET    | `/analytics/overview`         | ALL   | Total customer, jumlah prediksi (YES/NO), jumlah campaign |     |                      |
-| GET    | `/analytics/trend?groupBy=day | week  | month`                                                    | ALL | Grafik tren prediksi |
-| GET    | `/analytics/by-job`           | ALL   | Distribusi hasil prediksi berdasarkan pekerjaan           |     |                      |
+| Method | Path                  | Roles | Description                                                      |
+| ------ | --------------------- | ----- | ---------------------------------------------------------------- |
+| GET    | `/analytics/overview` | ALL   | Get total customers, YES/NO predictions, and campaigns summary   |
+| GET    | `/analytics/trend`    | ALL   | Get prediction trends graph (group by `day`, `week`, or `month`) |
+| GET    | `/analytics/by-job`   | ALL   | Get distribution of predictions by job category                  |
 
 ---
 
 ## ☁️ Uploads Module (Cloudinary)
 
-| Method | Path             | Roles | Deskripsi                                         |
+| Method | Path             | Roles | Description                                       |
 | ------ | ---------------- | ----- | ------------------------------------------------- |
 | POST   | `/uploads/image` | ALL   | Upload image (multipart/form-data, field: `file`) |
 
-**Respons:**
+**Response Example:**
 
 ```json
 {
   "success": true,
   "data": {
     "url": "https://res.cloudinary.com/...jpg",
-    "publicId": "inventory/xyz123"
+    "publicId": "uploads/xyz123"
   }
 }
 ```
 
 ---
 
-## 🧠 ML Integration (Service)
+## 🧠 ML Integration
 
-Set environment `ML_BASE_URL` ke endpoint model, misal:
-
-```
-https://A25-CS078-Banking-Sales-Predictor.hf.space
-```
-
-Used in:
-
-- `POST /predictions/single`
-- `POST /campaigns/:id/run`
-
-Body dikirim ke ML API: fitur numerik + kategorikal (job, marital, dsb) → menerima hasil:
+- **Environment variable:** `ML_BASE_URL` → ML service endpoint
+- **ML API Key:** `ML_API_KEY`
+- Used in: `POST /predictions/single` and `POST /campaigns/:id/run`
+- Send numerical + categorical features (job, marital, etc.) → Receive:
 
 ```json
 {
@@ -249,18 +244,25 @@ Body dikirim ke ML API: fitur numerik + kategorikal (job, marital, dsb) → mene
 
 ---
 
-## 📦 Standard Response Example
+## 📧 SMTP Mail Integration
 
-✅ **Sukses**
+- **Environment variables:** `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASS`, `MAIL_FROM`
+- Used for sending notifications, campaign summaries, or system alerts.
+
+---
+
+## 📦 Standard Response Format
+
+✅ Success:
 
 ```json
 {
   "success": true,
-  "data": { "id": "abc123", "name": "Oct Campaign" }
+  "data": { "id": "abc123", "name": "October Campaign" }
 }
 ```
 
-❌ **Error**
+❌ Error:
 
 ```json
 {
@@ -275,43 +277,41 @@ Body dikirim ke ML API: fitur numerik + kategorikal (job, marital, dsb) → mene
 
 ---
 
-## 🧰 Dev Tools
+## 🧰 Dev Commands
 
-| Command              | Deskripsi                                |
-| -------------------- | ---------------------------------------- |
-| `npm run start:dev`  | Jalankan server dev (watch mode)         |
-| `npm run build`      | Build project ke folder `dist`           |
-| `npm run start:prod` | Jalankan versi produksi                  |
-| `npm run lint`       | Perbaiki format kode (ESLint + Prettier) |
-| `npm run seed`       | Jalankan seeder database                 |
-| `npm run test`       | Jalankan unit test (Jest)                |
+| Command              | Description                         |
+| -------------------- | ----------------------------------- |
+| `npm run start:dev`  | Run server in dev mode (watch)      |
+| `npm run build`      | Build project to `dist`             |
+| `npm run start:prod` | Run production server               |
+| `npm run lint`       | Fix code format (ESLint + Prettier) |
+| `npm run seed`       | Seed database                       |
+| `npm run test`       | Run unit tests (Jest)               |
 
 ---
 
-## 🧾 License & Credits
+## 👥 Development Team
 
-**License:** Private repository – for internal **Capstone Project** use only.
-© 2025 — Developed by:
-
-| Name                        | GitHub                                                         |
-| --------------------------- | -------------------------------------------------------------- |
-| **Muhamad Zidan Indratama** | [github.com/zidanindratama](https://github.com/zidanindratama) |
-| **Ilham Maulana**           | [github.com/ilhmlnaa](https://github.com/ilhmlnaa)             |
+- **Alexander Brian Susanto** - React & Backend with AI (Binus University)
+- **Nur Bintang Hidayat** - Machine Learning (Gunadarma University)
+- **Muhamad Zidan Indratama** - React & Backend with AI (Gunadarma University)
+- **Muhamad Rafli Kamal** - Machine Learning (Politeknik Enjinering Indorama)
+- **Ilham Maulana** - React & Backend with AI (Gunadarma University)
 
 ---
 
 ## 📚 Tips
 
-- Simpan `accessToken` di FE (React/NextJS) memory atau cookie; biarkan `refreshToken` tetap di HTTP-only cookie.
-- Gunakan header:
+- Store `accessToken` in frontend memory or cookie; keep `refreshToken` in HTTP-only cookie.
+- Use headers:
 
-  ```
-  Authorization: Bearer <accessToken>
-  Content-Type: application/json
-  ```
+```
+Authorization: Bearer <accessToken>
+Content-Type: application/json
+```
 
-- Semua modul bisa diakses di base URL:
+- All modules accessible at base URL:
 
-  ```
-  https://be-predictive-lead-scoring.vercel.app/
-  ```
+```
+https://be-predictive-lead-scoring.vercel.app/
+```
